@@ -89,6 +89,7 @@ describe('Pool', function () {
     var terminatedWorkers = [];
     var pool = new Pool({
       workerType: 'process',
+      maxWorkers: 4, // make sure we can create enough workers (otherwise we could be limited by the number of CPUs)
       onCreateWorker: (opts) => {
         return {...opts, forkOpts: {...opts.forkOpts, env: { TEST_ENV: `env_value${counter++}` }}}
       },
@@ -110,13 +111,17 @@ describe('Pool', function () {
       assert(result.includes('env_value0'), 'result should include the value with counter = 0');
       assert(result.includes('env_value1'), 'result should include the value with counter = 1');
       assert(result.includes('env_value2'), 'result should include the value with counter = 2');
-
       return pool.terminate();
     }).then(function () {
       assert.strictEqual(terminatedWorkers.length, 3, 'The termination hook should be called 3 times');
       assert(terminatedWorkers.includes('env_value0'), 'terminatedWorkers should include the value with counter = 0');
       assert(terminatedWorkers.includes('env_value1'), 'terminatedWorkers should include the value with counter = 1');
       assert(terminatedWorkers.includes('env_value2'), 'terminatedWorkers should include the value with counter = 2');
+    }).catch(function (error) {
+      // correctly terminate the pool in case of error to avoid hanging the tests forever
+      return pool.terminate().then(function() {
+        throw error;
+      });
     });
   });
 
